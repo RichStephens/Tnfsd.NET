@@ -1,0 +1,8 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+/Tnfsd.NET/bin/Debug/net8.0-windows
+/Tnfsd.NET/obj/Debug/net8.0-windows
+/Tnfsd.NET/obj
