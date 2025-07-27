@@ -110,6 +110,54 @@ namespace Tnfsd.NET
                 }
             }
         }
+
+        public static string GetTaskExecPath(string taskName)
+        {
+            using TaskService ts = new TaskService();
+
+            if (TaskExists(taskName))
+            {
+                Microsoft.Win32.TaskScheduler.Task task = ts.GetTask(taskName);
+
+                if (task != null)
+                {
+                    foreach (Microsoft.Win32.TaskScheduler.Action action in task.Definition.Actions)
+                    {
+                        if (action.ActionType == TaskActionType.Execute)
+                        {
+                            Microsoft.Win32.TaskScheduler.ExecAction execAction = (Microsoft.Win32.TaskScheduler.ExecAction)action;
+                            return execAction.Path; // Return the executable path
+                        }
+                    }
+                }
+            }
+
+            return string.Empty; // Task or executable action not found
+        }
+
+        public static string GetTaskArguments(string taskName)
+        {
+            using TaskService ts = new TaskService();
+
+            if (TaskExists(taskName))
+            {
+                Microsoft.Win32.TaskScheduler.Task task = ts.GetTask(taskName);
+
+                if (task != null)
+                {
+                    foreach (Microsoft.Win32.TaskScheduler.Action action in task.Definition.Actions)
+                    {
+                        if (action.ActionType == TaskActionType.Execute)
+                        {
+                            Microsoft.Win32.TaskScheduler.ExecAction execAction = (Microsoft.Win32.TaskScheduler.ExecAction)action;
+                            return execAction.Arguments; // Return the arguments
+                        }
+                    }
+                }
+            }
+
+            return string.Empty; // Task or executable action not found
+        }
     }
 }
 
