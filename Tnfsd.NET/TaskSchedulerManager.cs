@@ -1,11 +1,12 @@
 ﻿using Microsoft.Win32.TaskScheduler;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Tnfsd.NET
 {
     public static class TaskSchedulerManager
     {
-        public static void CreateOrUpdateTask(string taskName, string description, string executablePath, string arguments = "")
+        public static string TaskName = "tnfsd";
+        public static string TaskExecutable = TaskName + ".exe";
+        public static void CreateOrUpdateTask(string taskName, string description, bool RunWithHighestPriv, string userId, string password, string executablePath, string arguments = "")
         {
             using TaskService ts = new TaskService();
 
@@ -27,11 +28,18 @@ namespace Tnfsd.NET
 
             // 👤 Run with highest privileges, even if user is not logged on
             td.Principal.UserId = Environment.UserName;
-            td.Principal.LogonType = TaskLogonType.S4U; // Run without storing password
-            td.Principal.RunLevel = TaskRunLevel.Highest;
+            td.Principal.LogonType = TaskLogonType.Password;
+            if (RunWithHighestPriv)
+            {
+                td.Principal.RunLevel = TaskRunLevel.Highest;
+            }
+            else
+            {
+                td.Principal.RunLevel = TaskRunLevel.LUA;
+            }
 
             // ✅ Register task
-            ts.RootFolder.RegisterTaskDefinition(taskName, td);
+            ts.RootFolder.RegisterTaskDefinition(taskName, td, TaskCreation.CreateOrUpdate, userId, password, TaskLogonType.Password);
         }
 
         public static void DeleteTask(string taskName)
@@ -111,53 +119,41 @@ namespace Tnfsd.NET
             }
         }
 
-        public static string GetTaskExecPath(string taskName)
+        public static TaskProperties GetTaskProperties(string taskName)
         {
+            TaskProperties taskProperties = new TaskProperties();
+
             using TaskService ts = new TaskService();
-
-            if (TaskExists(taskName))
             {
-                Microsoft.Win32.TaskScheduler.Task task = ts.GetTask(taskName);
-
-                if (task != null)
+                if (TaskExists(taskName))
                 {
-                    foreach (Microsoft.Win32.TaskScheduler.Action action in task.Definition.Actions)
+                    Microsoft.Win32.TaskScheduler.Task task = ts.GetTask(taskName);
+
+                    if (task != null)
                     {
-                        if (action.ActionType == TaskActionType.Execute)
+
+                        TaskDefinition taskDefinition = task.Definition;
+
+                        taskProperties.RunWithHighestPrivilege = taskDefinition.Principal.RunLevel == TaskRunLevel.Highest;
+                        taskProperties.UserId = taskDefinition.Principal.UserId;
+
+                        foreach (Microsoft.Win32.TaskScheduler.Action action in taskDefinition.Actions)
                         {
-                            Microsoft.Win32.TaskScheduler.ExecAction execAction = (Microsoft.Win32.TaskScheduler.ExecAction)action;
-                            return execAction.Path; // Return the executable path
+                            if (action.ActionType == TaskActionType.Execute)
+                            {
+                                Microsoft.Win32.TaskScheduler.ExecAction execAction = (Microsoft.Win32.TaskScheduler.ExecAction)action;
+                                taskProperties.ExecutableFolder =  execAction.Path.Replace($"\\{TaskExecutable}", "");
+                                taskProperties.ShareFolder =  execAction.Arguments.Replace("\"", "");
+                            }
                         }
                     }
                 }
+
             }
 
-            return string.Empty; // Task or executable action not found
+            return taskProperties;
         }
-
-        public static string GetTaskArguments(string taskName)
-        {
-            using TaskService ts = new TaskService();
-
-            if (TaskExists(taskName))
-            {
-                Microsoft.Win32.TaskScheduler.Task task = ts.GetTask(taskName);
-
-                if (task != null)
-                {
-                    foreach (Microsoft.Win32.TaskScheduler.Action action in task.Definition.Actions)
-                    {
-                        if (action.ActionType == TaskActionType.Execute)
-                        {
-                            Microsoft.Win32.TaskScheduler.ExecAction execAction = (Microsoft.Win32.TaskScheduler.ExecAction)action;
-                            return execAction.Arguments; // Return the arguments
-                        }
-                    }
-                }
-            }
-
-            return string.Empty; // Task or executable action not found
-        }
+        
     }
 }
 
