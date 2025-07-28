@@ -38,10 +38,13 @@
             buttonDeleteTask = new Button();
             buttonStartTask = new Button();
             buttonStopTask = new Button();
-            radioRunWithHighestPriv = new RadioButton();
-            radioRunAsSpecificUser = new RadioButton();
             labelTaskIsRunning = new Label();
             labelTaskNotRunning = new Label();
+            labelUser = new Label();
+            labelPassword = new Label();
+            textBoxUser = new TextBox();
+            textBoxPassword = new TextBox();
+            checkBoxRunWithHighestPriv = new CheckBox();
             SuspendLayout();
             // 
             // lblExecFolder
@@ -56,7 +59,7 @@
             // lblTnfsShareFolder
             // 
             lblTnfsShareFolder.AutoSize = true;
-            lblTnfsShareFolder.Location = new Point(25, 47);
+            lblTnfsShareFolder.Location = new Point(57, 48);
             lblTnfsShareFolder.Name = "lblTnfsShareFolder";
             lblTnfsShareFolder.Size = new Size(110, 15);
             lblTnfsShareFolder.TabIndex = 1;
@@ -64,16 +67,16 @@
             // 
             // textBoxExecFolder
             // 
-            textBoxExecFolder.Location = new Point(156, 16);
+            textBoxExecFolder.Location = new Point(173, 16);
             textBoxExecFolder.Name = "textBoxExecFolder";
-            textBoxExecFolder.Size = new Size(551, 23);
+            textBoxExecFolder.Size = new Size(534, 23);
             textBoxExecFolder.TabIndex = 2;
             // 
             // textBoxShareFolder
             // 
-            textBoxShareFolder.Location = new Point(156, 44);
+            textBoxShareFolder.Location = new Point(173, 44);
             textBoxShareFolder.Name = "textBoxShareFolder";
-            textBoxShareFolder.Size = new Size(551, 23);
+            textBoxShareFolder.Size = new Size(534, 23);
             textBoxShareFolder.TabIndex = 3;
             // 
             // buttonBrowseExecFolder
@@ -98,7 +101,7 @@
             // 
             // buttonInstallTask
             // 
-            buttonInstallTask.Location = new Point(78, 406);
+            buttonInstallTask.Location = new Point(91, 218);
             buttonInstallTask.Name = "buttonInstallTask";
             buttonInstallTask.Size = new Size(153, 32);
             buttonInstallTask.TabIndex = 6;
@@ -108,7 +111,7 @@
             // 
             // buttonDeleteTask
             // 
-            buttonDeleteTask.Location = new Point(237, 406);
+            buttonDeleteTask.Location = new Point(250, 218);
             buttonDeleteTask.Name = "buttonDeleteTask";
             buttonDeleteTask.Size = new Size(153, 32);
             buttonDeleteTask.TabIndex = 7;
@@ -118,7 +121,7 @@
             // 
             // buttonStartTask
             // 
-            buttonStartTask.Location = new Point(396, 406);
+            buttonStartTask.Location = new Point(409, 218);
             buttonStartTask.Name = "buttonStartTask";
             buttonStartTask.Size = new Size(153, 32);
             buttonStartTask.TabIndex = 8;
@@ -128,7 +131,7 @@
             // 
             // buttonStopTask
             // 
-            buttonStopTask.Location = new Point(554, 406);
+            buttonStopTask.Location = new Point(568, 218);
             buttonStopTask.Name = "buttonStopTask";
             buttonStopTask.Size = new Size(153, 32);
             buttonStopTask.TabIndex = 9;
@@ -136,35 +139,13 @@
             buttonStopTask.UseVisualStyleBackColor = true;
             buttonStopTask.Click += buttonStopTask_Click;
             // 
-            // radioRunWithHighestPriv
-            // 
-            radioRunWithHighestPriv.AutoSize = true;
-            radioRunWithHighestPriv.Location = new Point(36, 88);
-            radioRunWithHighestPriv.Name = "radioRunWithHighestPriv";
-            radioRunWithHighestPriv.Size = new Size(176, 19);
-            radioRunWithHighestPriv.TabIndex = 10;
-            radioRunWithHighestPriv.TabStop = true;
-            radioRunWithHighestPriv.Text = "Run with highest privileges";
-            radioRunWithHighestPriv.UseVisualStyleBackColor = true;
-            // 
-            // radioRunAsSpecificUser
-            // 
-            radioRunAsSpecificUser.AutoSize = true;
-            radioRunAsSpecificUser.Location = new Point(36, 113);
-            radioRunAsSpecificUser.Name = "radioRunAsSpecificUser";
-            radioRunAsSpecificUser.Size = new Size(133, 19);
-            radioRunAsSpecificUser.TabIndex = 11;
-            radioRunAsSpecificUser.TabStop = true;
-            radioRunAsSpecificUser.Text = "Run as specific user";
-            radioRunAsSpecificUser.UseVisualStyleBackColor = true;
-            // 
             // labelTaskIsRunning
             // 
             labelTaskIsRunning.AutoSize = true;
             labelTaskIsRunning.BorderStyle = BorderStyle.Fixed3D;
-            labelTaskIsRunning.Location = new Point(290, 375);
+            labelTaskIsRunning.Location = new Point(285, 189);
             labelTaskIsRunning.Name = "labelTaskIsRunning";
-            labelTaskIsRunning.Size = new Size(208, 17);
+            labelTaskIsRunning.Size = new Size(215, 17);
             labelTaskIsRunning.TabIndex = 12;
             labelTaskIsRunning.Text = " *** Tnfsd task is currently running ***";
             // 
@@ -172,21 +153,67 @@
             // 
             labelTaskNotRunning.AutoSize = true;
             labelTaskNotRunning.BorderStyle = BorderStyle.Fixed3D;
-            labelTaskNotRunning.Location = new Point(280, 375);
+            labelTaskNotRunning.Location = new Point(271, 189);
             labelTaskNotRunning.Name = "labelTaskNotRunning";
-            labelTaskNotRunning.Size = new Size(236, 17);
+            labelTaskNotRunning.Size = new Size(243, 17);
             labelTaskNotRunning.TabIndex = 13;
             labelTaskNotRunning.Text = " *** Tnfsd task is NOT currently running ***";
+            // 
+            // labelUser
+            // 
+            labelUser.AutoSize = true;
+            labelUser.Location = new Point(131, 123);
+            labelUser.Name = "labelUser";
+            labelUser.Size = new Size(36, 15);
+            labelUser.TabIndex = 14;
+            labelUser.Text = "User:";
+            // 
+            // labelPassword
+            // 
+            labelPassword.AutoSize = true;
+            labelPassword.Location = new Point(105, 155);
+            labelPassword.Name = "labelPassword";
+            labelPassword.Size = new Size(62, 15);
+            labelPassword.TabIndex = 15;
+            labelPassword.Text = "Password:";
+            // 
+            // textBoxUser
+            // 
+            textBoxUser.Location = new Point(173, 120);
+            textBoxUser.Name = "textBoxUser";
+            textBoxUser.Size = new Size(285, 23);
+            textBoxUser.TabIndex = 16;
+            // 
+            // textBoxPassword
+            // 
+            textBoxPassword.Location = new Point(173, 152);
+            textBoxPassword.Name = "textBoxPassword";
+            textBoxPassword.Size = new Size(285, 23);
+            textBoxPassword.TabIndex = 17;
+            textBoxPassword.UseSystemPasswordChar = true;
+            // 
+            // checkBoxRunWithHighestPriv
+            // 
+            checkBoxRunWithHighestPriv.AutoSize = true;
+            checkBoxRunWithHighestPriv.Location = new Point(173, 84);
+            checkBoxRunWithHighestPriv.Name = "checkBoxRunWithHighestPriv";
+            checkBoxRunWithHighestPriv.Size = new Size(177, 19);
+            checkBoxRunWithHighestPriv.TabIndex = 18;
+            checkBoxRunWithHighestPriv.Text = "Run with highest privileges";
+            checkBoxRunWithHighestPriv.UseVisualStyleBackColor = true;
             // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(800, 262);
+            Controls.Add(checkBoxRunWithHighestPriv);
+            Controls.Add(textBoxPassword);
+            Controls.Add(textBoxUser);
+            Controls.Add(labelPassword);
+            Controls.Add(labelUser);
             Controls.Add(labelTaskNotRunning);
             Controls.Add(labelTaskIsRunning);
-            Controls.Add(radioRunAsSpecificUser);
-            Controls.Add(radioRunWithHighestPriv);
             Controls.Add(buttonStopTask);
             Controls.Add(buttonStartTask);
             Controls.Add(buttonDeleteTask);
@@ -199,6 +226,8 @@
             Controls.Add(lblExecFolder);
             Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
             Name = "MainForm";
             Text = "Tnfsd.NET";
             Load += Form1_Load;
@@ -218,9 +247,12 @@
         private Button buttonDeleteTask;
         private Button buttonStartTask;
         private Button buttonStopTask;
-        private RadioButton radioRunWithHighestPriv;
-        private RadioButton radioRunAsSpecificUser;
         private Label labelTaskIsRunning;
         private Label labelTaskNotRunning;
+        private Label labelUser;
+        private Label labelPassword;
+        private TextBox textBoxUser;
+        private TextBox textBoxPassword;
+        private CheckBox checkBoxRunWithHighestPriv;
     }
 }
