@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             lblExecFolder = new Label();
             lblTnfsShareFolder = new Label();
             textBoxExecFolder = new TextBox();
@@ -226,11 +227,11 @@
             Controls.Add(lblExecFolder);
             Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             FormBorderStyle = FormBorderStyle.FixedDialog;
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
-            MinimizeBox = false;
             Name = "MainForm";
             Text = "Tnfsd.NET";
-            Load += Form1_Load;
+            Load += MainForm_Load;
             ResumeLayout(false);
             PerformLayout();
         }
