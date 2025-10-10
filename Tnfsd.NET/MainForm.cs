@@ -6,6 +6,8 @@ namespace Tnfsd.NET
 {
     public partial class MainForm : Form
     {
+        private System.Windows.Forms.Timer _uiTimer;
+
         public MainForm()
         {
             InitializeComponent();
@@ -35,11 +37,22 @@ namespace Tnfsd.NET
                     labelTaskNotRunning.Visible = true;
                     buttonStopTask.Enabled = false;
                     buttonStartTask.Enabled = true;
+
+                    // If the task is NOT running and the form is minimized, restore it
+                    if (this.WindowState == FormWindowState.Minimized)
+                    {
+                        this.Invoke(new System.Action(() =>
+                        {
+                            this.WindowState = FormWindowState.Normal;
+                            this.Activate();
+                            this.BringToFront();
+                        }));
+                    }
                 }
             }
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void MainForm_Load(object sender, EventArgs e)
         {
             TaskProperties taskProperties = TaskSchedulerManager.GetTaskProperties(TaskSchedulerManager.TaskName);
 
@@ -64,6 +77,20 @@ namespace Tnfsd.NET
                 textBoxUser.Text = taskProperties.UserId;
             }
 
+            setTaskRunningState();
+
+            _uiTimer = new System.Windows.Forms.Timer()
+            {
+                Interval = 10000 // 10 seconds
+            };
+
+            _uiTimer.Tick += UiTimer_Tick;
+            _uiTimer.Start();
+        }
+
+        private void UiTimer_Tick(object? sender, EventArgs e)
+        {
+            // This runs on the UI thread, so you can safely update controls directly
             setTaskRunningState();
         }
 
@@ -139,7 +166,6 @@ namespace Tnfsd.NET
                 return;
             }
 
-
             string shareFolder = textBoxShareFolder.Text;
 
             // Ensure that the share folder starts and ends with quotation marks
@@ -147,6 +173,8 @@ namespace Tnfsd.NET
             {
                 shareFolder = "\"" + shareFolder + "\"";
             }
+
+            //TODO: Check for user and password filled in.
 
             try
             {
