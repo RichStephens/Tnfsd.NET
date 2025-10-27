@@ -29,29 +29,39 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
+            buttonCreateService = new Button();
             lblExecFolder = new Label();
             lblTnfsShareFolder = new Label();
             textBoxExecFolder = new TextBox();
             textBoxShareFolder = new TextBox();
             buttonBrowseExecFolder = new Button();
             buttonBrowseShareFolder = new Button();
-            buttonInstallTask = new Button();
-            buttonDeleteTask = new Button();
-            buttonStartTask = new Button();
-            buttonStopTask = new Button();
-            labelTaskIsRunning = new Label();
-            labelTaskNotRunning = new Label();
+            buttonDeleteService = new Button();
+            buttonStartService = new Button();
+            buttonStopService = new Button();
+            labelServiceIsRunning = new Label();
+            labelServiceNotRunning = new Label();
             labelUser = new Label();
             labelPassword = new Label();
             textBoxUser = new TextBox();
             textBoxPassword = new TextBox();
-            checkBoxRunWithHighestPriv = new CheckBox();
+            downloadButton = new Button();
             SuspendLayout();
+            // 
+            // buttonCreateService
+            // 
+            buttonCreateService.Location = new Point(116, 177);
+            buttonCreateService.Name = "buttonCreateService";
+            buttonCreateService.Size = new Size(153, 32);
+            buttonCreateService.TabIndex = 6;
+            buttonCreateService.Text = "Create/Update Service";
+            buttonCreateService.UseVisualStyleBackColor = true;
+            buttonCreateService.Click += buttonCreateService_Click;
             // 
             // lblExecFolder
             // 
             lblExecFolder.AutoSize = true;
-            lblExecFolder.Location = new Point(25, 19);
+            lblExecFolder.Location = new Point(8, 19);
             lblExecFolder.Name = "lblExecFolder";
             lblExecFolder.Size = new Size(142, 15);
             lblExecFolder.TabIndex = 0;
@@ -60,7 +70,7 @@
             // lblTnfsShareFolder
             // 
             lblTnfsShareFolder.AutoSize = true;
-            lblTnfsShareFolder.Location = new Point(57, 48);
+            lblTnfsShareFolder.Location = new Point(40, 48);
             lblTnfsShareFolder.Name = "lblTnfsShareFolder";
             lblTnfsShareFolder.Size = new Size(110, 15);
             lblTnfsShareFolder.TabIndex = 1;
@@ -68,21 +78,21 @@
             // 
             // textBoxExecFolder
             // 
-            textBoxExecFolder.Location = new Point(173, 16);
+            textBoxExecFolder.Location = new Point(156, 16);
             textBoxExecFolder.Name = "textBoxExecFolder";
             textBoxExecFolder.Size = new Size(534, 23);
             textBoxExecFolder.TabIndex = 2;
             // 
             // textBoxShareFolder
             // 
-            textBoxShareFolder.Location = new Point(173, 44);
+            textBoxShareFolder.Location = new Point(156, 44);
             textBoxShareFolder.Name = "textBoxShareFolder";
             textBoxShareFolder.Size = new Size(534, 23);
             textBoxShareFolder.TabIndex = 3;
             // 
             // buttonBrowseExecFolder
             // 
-            buttonBrowseExecFolder.Location = new Point(713, 15);
+            buttonBrowseExecFolder.Location = new Point(696, 15);
             buttonBrowseExecFolder.Name = "buttonBrowseExecFolder";
             buttonBrowseExecFolder.Size = new Size(75, 23);
             buttonBrowseExecFolder.TabIndex = 4;
@@ -92,7 +102,7 @@
             // 
             // buttonBrowseShareFolder
             // 
-            buttonBrowseShareFolder.Location = new Point(713, 44);
+            buttonBrowseShareFolder.Location = new Point(696, 44);
             buttonBrowseShareFolder.Name = "buttonBrowseShareFolder";
             buttonBrowseShareFolder.Size = new Size(75, 23);
             buttonBrowseShareFolder.TabIndex = 5;
@@ -100,70 +110,61 @@
             buttonBrowseShareFolder.UseVisualStyleBackColor = true;
             buttonBrowseShareFolder.Click += buttonBrowseShareFolder_Click;
             // 
-            // buttonInstallTask
+            // buttonDeleteService
             // 
-            buttonInstallTask.Location = new Point(91, 218);
-            buttonInstallTask.Name = "buttonInstallTask";
-            buttonInstallTask.Size = new Size(153, 32);
-            buttonInstallTask.TabIndex = 6;
-            buttonInstallTask.Text = "Install/Update Task";
-            buttonInstallTask.UseVisualStyleBackColor = true;
-            buttonInstallTask.Click += buttonInstallTask_Click;
+            buttonDeleteService.Location = new Point(275, 177);
+            buttonDeleteService.Name = "buttonDeleteService";
+            buttonDeleteService.Size = new Size(153, 32);
+            buttonDeleteService.TabIndex = 7;
+            buttonDeleteService.Text = "Delete Service";
+            buttonDeleteService.UseVisualStyleBackColor = true;
+            buttonDeleteService.Click += buttonDeleteService_Click;
             // 
-            // buttonDeleteTask
+            // buttonStartService
             // 
-            buttonDeleteTask.Location = new Point(250, 218);
-            buttonDeleteTask.Name = "buttonDeleteTask";
-            buttonDeleteTask.Size = new Size(153, 32);
-            buttonDeleteTask.TabIndex = 7;
-            buttonDeleteTask.Text = "Delete Task";
-            buttonDeleteTask.UseVisualStyleBackColor = true;
-            buttonDeleteTask.Click += buttonDeleteTask_Click;
+            buttonStartService.Location = new Point(434, 177);
+            buttonStartService.Name = "buttonStartService";
+            buttonStartService.Size = new Size(153, 32);
+            buttonStartService.TabIndex = 8;
+            buttonStartService.Text = "Start Service";
+            buttonStartService.UseVisualStyleBackColor = true;
+            buttonStartService.Click += buttonStartService_Click;
             // 
-            // buttonStartTask
+            // buttonStopService
             // 
-            buttonStartTask.Location = new Point(409, 218);
-            buttonStartTask.Name = "buttonStartTask";
-            buttonStartTask.Size = new Size(153, 32);
-            buttonStartTask.TabIndex = 8;
-            buttonStartTask.Text = "Start Task";
-            buttonStartTask.UseVisualStyleBackColor = true;
-            buttonStartTask.Click += buttonStartTask_Click;
+            buttonStopService.Location = new Point(593, 177);
+            buttonStopService.Name = "buttonStopService";
+            buttonStopService.RightToLeft = RightToLeft.No;
+            buttonStopService.Size = new Size(153, 32);
+            buttonStopService.TabIndex = 9;
+            buttonStopService.Text = "Stop Service";
+            buttonStopService.UseVisualStyleBackColor = true;
+            buttonStopService.Click += buttonStopService_Click;
             // 
-            // buttonStopTask
+            // labelServiceIsRunning
             // 
-            buttonStopTask.Location = new Point(568, 218);
-            buttonStopTask.Name = "buttonStopTask";
-            buttonStopTask.Size = new Size(153, 32);
-            buttonStopTask.TabIndex = 9;
-            buttonStopTask.Text = "Stop Task";
-            buttonStopTask.UseVisualStyleBackColor = true;
-            buttonStopTask.Click += buttonStopTask_Click;
+            labelServiceIsRunning.AutoSize = true;
+            labelServiceIsRunning.BorderStyle = BorderStyle.Fixed3D;
+            labelServiceIsRunning.Location = new Point(310, 148);
+            labelServiceIsRunning.Name = "labelServiceIsRunning";
+            labelServiceIsRunning.Size = new Size(232, 17);
+            labelServiceIsRunning.TabIndex = 12;
+            labelServiceIsRunning.Text = " *** Tnfsd service is currently running ***";
             // 
-            // labelTaskIsRunning
+            // labelServiceNotRunning
             // 
-            labelTaskIsRunning.AutoSize = true;
-            labelTaskIsRunning.BorderStyle = BorderStyle.Fixed3D;
-            labelTaskIsRunning.Location = new Point(285, 189);
-            labelTaskIsRunning.Name = "labelTaskIsRunning";
-            labelTaskIsRunning.Size = new Size(215, 17);
-            labelTaskIsRunning.TabIndex = 12;
-            labelTaskIsRunning.Text = " *** Tnfsd task is currently running ***";
-            // 
-            // labelTaskNotRunning
-            // 
-            labelTaskNotRunning.AutoSize = true;
-            labelTaskNotRunning.BorderStyle = BorderStyle.Fixed3D;
-            labelTaskNotRunning.Location = new Point(271, 189);
-            labelTaskNotRunning.Name = "labelTaskNotRunning";
-            labelTaskNotRunning.Size = new Size(243, 17);
-            labelTaskNotRunning.TabIndex = 13;
-            labelTaskNotRunning.Text = " *** Tnfsd task is NOT currently running ***";
+            labelServiceNotRunning.AutoSize = true;
+            labelServiceNotRunning.BorderStyle = BorderStyle.Fixed3D;
+            labelServiceNotRunning.Location = new Point(296, 148);
+            labelServiceNotRunning.Name = "labelServiceNotRunning";
+            labelServiceNotRunning.Size = new Size(260, 17);
+            labelServiceNotRunning.TabIndex = 13;
+            labelServiceNotRunning.Text = " *** Tnfsd service is NOT currently running ***";
             // 
             // labelUser
             // 
             labelUser.AutoSize = true;
-            labelUser.Location = new Point(131, 123);
+            labelUser.Location = new Point(114, 78);
             labelUser.Name = "labelUser";
             labelUser.Size = new Size(36, 15);
             labelUser.TabIndex = 14;
@@ -172,7 +173,7 @@
             // labelPassword
             // 
             labelPassword.AutoSize = true;
-            labelPassword.Location = new Point(105, 155);
+            labelPassword.Location = new Point(88, 110);
             labelPassword.Name = "labelPassword";
             labelPassword.Size = new Size(62, 15);
             labelPassword.TabIndex = 15;
@@ -180,45 +181,45 @@
             // 
             // textBoxUser
             // 
-            textBoxUser.Location = new Point(173, 120);
+            textBoxUser.Location = new Point(156, 75);
             textBoxUser.Name = "textBoxUser";
             textBoxUser.Size = new Size(285, 23);
             textBoxUser.TabIndex = 16;
             // 
             // textBoxPassword
             // 
-            textBoxPassword.Location = new Point(173, 152);
+            textBoxPassword.Location = new Point(156, 107);
             textBoxPassword.Name = "textBoxPassword";
             textBoxPassword.Size = new Size(285, 23);
             textBoxPassword.TabIndex = 17;
             textBoxPassword.UseSystemPasswordChar = true;
             // 
-            // checkBoxRunWithHighestPriv
+            // downloadButton
             // 
-            checkBoxRunWithHighestPriv.AutoSize = true;
-            checkBoxRunWithHighestPriv.Location = new Point(173, 84);
-            checkBoxRunWithHighestPriv.Name = "checkBoxRunWithHighestPriv";
-            checkBoxRunWithHighestPriv.Size = new Size(177, 19);
-            checkBoxRunWithHighestPriv.TabIndex = 18;
-            checkBoxRunWithHighestPriv.Text = "Run with highest privileges";
-            checkBoxRunWithHighestPriv.UseVisualStyleBackColor = true;
+            downloadButton.Location = new Point(777, 15);
+            downloadButton.Name = "downloadButton";
+            downloadButton.Size = new Size(75, 23);
+            downloadButton.TabIndex = 18;
+            downloadButton.Text = "Download";
+            downloadButton.UseVisualStyleBackColor = true;
+            downloadButton.Click += downloadButton_Click;
             // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 262);
-            Controls.Add(checkBoxRunWithHighestPriv);
+            ClientSize = new Size(863, 219);
+            Controls.Add(downloadButton);
             Controls.Add(textBoxPassword);
             Controls.Add(textBoxUser);
             Controls.Add(labelPassword);
             Controls.Add(labelUser);
-            Controls.Add(labelTaskNotRunning);
-            Controls.Add(labelTaskIsRunning);
-            Controls.Add(buttonStopTask);
-            Controls.Add(buttonStartTask);
-            Controls.Add(buttonDeleteTask);
-            Controls.Add(buttonInstallTask);
+            Controls.Add(labelServiceNotRunning);
+            Controls.Add(labelServiceIsRunning);
+            Controls.Add(buttonStopService);
+            Controls.Add(buttonStartService);
+            Controls.Add(buttonDeleteService);
+            Controls.Add(buttonCreateService);
             Controls.Add(buttonBrowseShareFolder);
             Controls.Add(buttonBrowseExecFolder);
             Controls.Add(textBoxShareFolder);
@@ -244,16 +245,16 @@
         private TextBox textBoxShareFolder;
         private Button buttonBrowseExecFolder;
         private Button buttonBrowseShareFolder;
-        private Button buttonInstallTask;
-        private Button buttonDeleteTask;
-        private Button buttonStartTask;
-        private Button buttonStopTask;
-        private Label labelTaskIsRunning;
-        private Label labelTaskNotRunning;
+        private Button buttonCreateService;
+        private Button buttonDeleteService;
+        private Button buttonStartService;
+        private Button buttonStopService;
+        private Label labelServiceIsRunning;
+        private Label labelServiceNotRunning;
         private Label labelUser;
         private Label labelPassword;
         private TextBox textBoxUser;
         private TextBox textBoxPassword;
-        private CheckBox checkBoxRunWithHighestPriv;
+        private Button downloadButton;
     }
 }

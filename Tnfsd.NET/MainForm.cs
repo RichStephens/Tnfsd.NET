@@ -1,44 +1,66 @@
-using Microsoft.Win32.TaskScheduler;
-using System.Diagnostics.Eventing.Reader;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
+using System;
+using System.IO;
+using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace Tnfsd.NET
 {
     public partial class MainForm : Form
     {
         private System.Windows.Forms.Timer _uiTimer;
+        private bool _passwordVisible = false;
 
         public MainForm()
         {
             InitializeComponent();
+            textBoxPassword.UseSystemPasswordChar = true; // Mask password input
+
+            // Create Show/Hide Password button (placed next to textBoxPassword)
+            Button buttonTogglePassword = new Button();
+            buttonTogglePassword.Text = "Show";
+            buttonTogglePassword.Width = 60;
+            buttonTogglePassword.Height = textBoxPassword.Height;
+            buttonTogglePassword.Left = textBoxPassword.Right + 5;
+            buttonTogglePassword.Top = textBoxPassword.Top;
+            buttonTogglePassword.Click += (s, e) => TogglePasswordVisibility(buttonTogglePassword);
+            this.Controls.Add(buttonTogglePassword);
         }
 
-        private void setTaskRunningState()
+        private void TogglePasswordVisibility(Button toggleButton)
         {
-            if (!TaskSchedulerManager.TaskExists(TaskSchedulerManager.TaskName))
+            _passwordVisible = !_passwordVisible;
+            textBoxPassword.UseSystemPasswordChar = !_passwordVisible;
+            toggleButton.Text = _passwordVisible ? "Hide" : "Show";
+        }
+
+        private void setServiceRunningState()
+        {
+            if (!ServiceManager.ServiceExists(ServiceManager.ServiceName))
             {
-                labelTaskIsRunning.Visible = false;
-                labelTaskNotRunning.Visible = true;
-                buttonStopTask.Enabled = false;
-                buttonStartTask.Enabled = false;
+                labelServiceIsRunning.Visible = false;
+                labelServiceNotRunning.Visible = true;
+                buttonDeleteService.Enabled = false;
+                buttonStopService.Enabled = false;
+                buttonStartService.Enabled = false;
             }
             else
             {
-                if (TaskSchedulerManager.TaskIsRunning(TaskSchedulerManager.TaskName))
+                if (ServiceManager.ServiceIsRunning(ServiceManager.ServiceName))
                 {
-                    labelTaskIsRunning.Visible = true;
-                    labelTaskNotRunning.Visible = false;
-                    buttonStopTask.Enabled = true;
-                    buttonStartTask.Enabled = false;
+                    labelServiceIsRunning.Visible = true;
+                    labelServiceNotRunning.Visible = false;
+                    buttonDeleteService.Enabled = true;
+                    buttonStopService.Enabled = true;
+                    buttonStartService.Enabled = false;
                 }
                 else
                 {
-                    labelTaskIsRunning.Visible = false;
-                    labelTaskNotRunning.Visible = true;
-                    buttonStopTask.Enabled = false;
-                    buttonStartTask.Enabled = true;
+                    labelServiceIsRunning.Visible = false;
+                    labelServiceNotRunning.Visible = true;
+                    buttonDeleteService.Enabled = true;
+                    buttonStopService.Enabled = false;
+                    buttonStartService.Enabled = true;
 
-                    // If the task is NOT running and the form is minimized, restore it
                     if (this.WindowState == FormWindowState.Minimized)
                     {
                         this.Invoke(new System.Action(() =>
@@ -54,44 +76,18 @@ namespace Tnfsd.NET
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            TaskProperties taskProperties = TaskSchedulerManager.GetTaskProperties(TaskSchedulerManager.TaskName);
+            ServiceProperties serviceProperties = ServiceManager.GetServiceProperties(ServiceManager.ServiceName);
 
-            if (!string.IsNullOrEmpty(taskProperties.ExecutableFolder))
-            {
-                textBoxExecFolder.Text = taskProperties.ExecutableFolder;
-            }
+            // Default username to current user if not loaded
+            if (string.IsNullOrWhiteSpace(serviceProperties.UserId))
+                textBoxUser.Text = Environment.UserName;
             else
-            {
-                textBoxExecFolder.Text = Application.StartupPath;
-            }
+                textBoxUser.Text = serviceProperties.UserId;
 
-            if (!string.IsNullOrEmpty(taskProperties.ShareFolder))
-            {
-                textBoxShareFolder.Text = taskProperties.ShareFolder;
-            }
-
-            checkBoxRunWithHighestPriv.Checked = taskProperties.RunWithHighestPrivilege;
-
-            if (!string.IsNullOrEmpty(taskProperties.UserId))
-            {
-                textBoxUser.Text = taskProperties.UserId;
-            }
-
-            setTaskRunningState();
-
-            _uiTimer = new System.Windows.Forms.Timer()
-            {
-                Interval = 10000 // 10 seconds
-            };
-
-            _uiTimer.Tick += UiTimer_Tick;
+            _uiTimer = new System.Windows.Forms.Timer();
+            _uiTimer.Interval = 2000;
+            _uiTimer.Tick += (s, ev) => setServiceRunningState();
             _uiTimer.Start();
-        }
-
-        private void UiTimer_Tick(object? sender, EventArgs e)
-        {
-            // This runs on the UI thread, so you can safely update controls directly
-            setTaskRunningState();
         }
 
         private void buttonBrowseExecFolder_Click(object sender, EventArgs e)
@@ -123,7 +119,8 @@ namespace Tnfsd.NET
                 }
             }
         }
-        private void buttonInstallTask_Click(object sender, EventArgs e)
+
+        private void buttonInstallService_Click(object sender, EventArgs e)
         {
             string execPath;
 
@@ -141,11 +138,11 @@ namespace Tnfsd.NET
 
             if (textBoxExecFolder.Text.EndsWith("\\"))
             {
-                execPath = textBoxExecFolder + TaskSchedulerManager.TaskExecutable;
+                execPath = textBoxExecFolder + ServiceManager.ServiceExecutable;
             }
             else
             {
-                execPath = textBoxExecFolder + "\\" + TaskSchedulerManager.TaskExecutable;
+                execPath = textBoxExecFolder + "\\" + ServiceManager.ServiceExecutable;
             }
 
             if (!File.Exists(execPath))
@@ -178,9 +175,9 @@ namespace Tnfsd.NET
 
             try
             {
-                TaskSchedulerManager.CreateOrUpdateTask(TaskSchedulerManager.TaskName, "Tnfs Server Daemon", checkBoxRunWithHighestPriv.Checked, textBoxUser.Text, textBoxPassword.Text, execPath, shareFolder);
-                setTaskRunningState();
-                MessageBox.Show("Tnfsd task created.");
+                ServiceManager.CreateOrUpdateService(ServiceManager.ServiceName, "Tnfsd Service", textBoxExecFolder.Text, textBoxShareFolder.Text, textBoxUser.Text, textBoxPassword.Text);
+                setServiceRunningState();
+                MessageBox.Show("Tnfsd Service created.");
             }
             catch (Exception ex)
             {
@@ -188,55 +185,80 @@ namespace Tnfsd.NET
             }
         }
 
-        private void buttonDeleteTask_Click(object sender, EventArgs e)
+        private void buttonStartService_Click(object sender, EventArgs e)
         {
-            if (TaskSchedulerManager.TaskExists(TaskSchedulerManager.TaskName) != true)
-            {
-                MessageBox.Show("tnfsd task does not exist!", "Alert", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                return;
-            }
-
-            TaskSchedulerManager.DeleteTask(TaskSchedulerManager.TaskName);
-            setTaskRunningState();
-            MessageBox.Show("Tnfsd task deleted.", "Information");
+            ServiceManager.StartService(ServiceManager.ServiceName);
+            setServiceRunningState();
         }
 
-        private void buttonStartTask_Click(object sender, EventArgs e)
+        private void buttonStopService_Click(object sender, EventArgs e)
         {
-            if (TaskSchedulerManager.TaskExists(TaskSchedulerManager.TaskName) != true)
-            {
-                MessageBox.Show("tnfsd task does not exist!", "Alert", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                return;
-            }
-
-            if (TaskSchedulerManager.TaskIsRunning(TaskSchedulerManager.TaskName) == true)
-            {
-                MessageBox.Show("tnfsd task is already running!", "Alert", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                return;
-            }
-
-            TaskSchedulerManager.StartTask(TaskSchedulerManager.TaskName);
-            setTaskRunningState();
-            MessageBox.Show("Tnfsd task started.", "Information");
+            ServiceManager.StopService(ServiceManager.ServiceName);
+            setServiceRunningState();
         }
 
-        private void buttonStopTask_Click(object sender, EventArgs e)
+        private void buttonCreateService_Click(object sender, EventArgs e)
         {
-            if (TaskSchedulerManager.TaskExists(TaskSchedulerManager.TaskName) != true)
+            string exeFolder = textBoxExecFolder.Text.Trim();
+            if (string.IsNullOrEmpty(exeFolder) || !Directory.Exists(exeFolder))
             {
-                MessageBox.Show("Tnfsd task does not exist!", "Alert", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                MessageBox.Show("Please specify a valid executable folder.", "Invalid Folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (TaskSchedulerManager.TaskIsRunning(TaskSchedulerManager.TaskName) != true)
+            string exePath = Path.Combine(exeFolder, ServiceManager.ServiceExecutable);
+            if (!File.Exists(exePath))
             {
-                MessageBox.Show("Tnfsd task is not currently running!", "Alert", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                MessageBox.Show($"The executable '{ServiceManager.ServiceExecutable}' was not found in the specified folder.", "Missing Executable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            TaskSchedulerManager.StopTask(TaskSchedulerManager.TaskName);
-            setTaskRunningState();
-            MessageBox.Show("Tnfsd task stopped.", "Information");
+            string userId = textBoxUser.Text.Trim();
+            if (string.IsNullOrWhiteSpace(userId))
+                userId = Environment.UserName;
+
+            string password = textBoxPassword.Text.Trim();
+
+            try
+            {
+                ServiceManager.CreateOrUpdateService(ServiceManager.ServiceName, "TNFSD Service", exePath, userId, password);
+                FirewallManager.AddFirewallException(exePath, "TNFSD Service");
+                MessageBox.Show("Service created/updated and firewall exception added successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to create service: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            textBoxPassword.Text = string.Empty; // Clear password immediately
+            setServiceRunningState();
+        }
+
+        private void buttonDeleteService_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FirewallManager.RemoveFirewallException(Path.Combine(textBoxExecFolder.Text.Trim(), ServiceManager.ServiceExecutable));
+                ServiceManager.UninstallService(ServiceManager.ServiceName);
+                MessageBox.Show("Service and firewall exception removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to remove service or firewall exception: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            setServiceRunningState();
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // Ensure password is cleared when form closes
+            textBoxPassword.Text = string.Empty;
+        }
+
+        private void downloadButton_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
