@@ -134,6 +134,24 @@ namespace Tnfsd.NET
             if (this.WindowState == FormWindowState.Minimized)
                 this.Hide();
         }
+
+        private void ShowHourglass(bool show)
+        {
+            if (show)
+            {
+                this.UseWaitCursor = true;
+                Cursor.Current = Cursors.WaitCursor;
+                this.Enabled = false;
+                Application.DoEvents(); // force UI refresh
+            }
+            else
+            {
+                this.UseWaitCursor = false;
+                Cursor.Current = Cursors.Default;
+                this.Enabled = true;
+                Application.DoEvents();
+            }
+        }
         private void MainForm_Load(object sender, EventArgs e)
         {
             var props = TaskSchedulerManager.GetTaskProperties(TaskSchedulerManager.TaskName);
@@ -165,13 +183,17 @@ namespace Tnfsd.NET
 
         private void buttonStartTask_Click(object sender, EventArgs e)
         {
+            ShowHourglass(true);
             TaskSchedulerManager.StartTask(TaskSchedulerManager.TaskName);
+            ShowHourglass(false);
             setTaskRunningState();
         }
 
         private void buttonStopTask_Click(object sender, EventArgs e)
         {
+            ShowHourglass(true);
             TaskSchedulerManager.StopTask(TaskSchedulerManager.TaskName);
+            ShowHourglass(false);
             setTaskRunningState();
         }
 
@@ -194,7 +216,7 @@ namespace Tnfsd.NET
 
             try
             {
-                this.UseWaitCursor = true;
+                ShowHourglass(true);
                 buttonCreateTask.Enabled = false;
 
                 TaskSchedulerManager.CreateOrUpdateTask(TaskSchedulerManager.TaskName, exePath, shareFolder);
@@ -204,11 +226,6 @@ namespace Tnfsd.NET
                     if (checkBoxAddFirewallException.Checked)
                     {
                         FirewallManager.AddFirewallException(exePath, TaskSchedulerManager.TaskName);
-
-                        if (FirewallManager.FirewallExceptionExists(TaskSchedulerManager.TaskName))
-                        {
-                            MessageBox.Show("Firewall exception created successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
                     }
                 }
 
@@ -229,7 +246,7 @@ namespace Tnfsd.NET
             finally
             {
                 buttonCreateTask.Enabled = true;
-                this.UseWaitCursor = false;
+                ShowHourglass(false);
                 setTaskRunningState();
             }
         }
@@ -238,7 +255,7 @@ namespace Tnfsd.NET
         {
             try
             {
-                this.UseWaitCursor = true;
+                ShowHourglass(true);
                 buttonDeleteTask.Enabled = false;
 
                 TaskSchedulerManager.DeleteTask(TaskSchedulerManager.TaskName);
@@ -262,7 +279,7 @@ namespace Tnfsd.NET
             finally
             {
                 buttonDeleteTask.Enabled = true;
-                this.UseWaitCursor = false;
+                ShowHourglass(false);
                 setTaskRunningState();
             }
         }
@@ -295,7 +312,7 @@ namespace Tnfsd.NET
                 {
                     // Continue with download and extraction
                     buttonDownload.Enabled = false;
-                    this.UseWaitCursor = true;
+                    ShowHourglass(true);
 
                     try
                     {
@@ -326,7 +343,7 @@ namespace Tnfsd.NET
                     finally
                     {
                         buttonDownload.Enabled = true;
-                        this.UseWaitCursor = false;
+                        ShowHourglass(false);
                     }
                 }
                 else if (result == DialogResult.No)

@@ -1,6 +1,5 @@
-﻿using System;
-using System.IO;
-using Microsoft.Win32.TaskScheduler;
+﻿using Microsoft.Win32.TaskScheduler;
+using System.Diagnostics;
 
 namespace Tnfsd.NET
 {
@@ -50,6 +49,11 @@ namespace Tnfsd.NET
 
         public static void DeleteTask(string taskName)
         {
+            if (IsTaskRunning(taskName))
+            {
+                StopTask(taskName);
+            }
+
             using (TaskService ts = new TaskService())
             {
                 var task = ts.GetTask(taskName);
@@ -68,28 +72,55 @@ namespace Tnfsd.NET
 
         public static bool IsTaskRunning(string taskName)
         {
-            using (TaskService ts = new TaskService())
+            using var ts = new TaskService();
+
+            // Always re-fetch to avoid stale state
+            var t = ts.GetTask(taskName) ?? ts.FindTask(taskName, true);
+            if (t == null)
+                return false;
+
+            // 1) Scheduler reports Running
+            if (t.State == TaskState.Running)
+                return true;
+
+            // 2) Check if this task appears in the system's active task list
+            if (ts.GetRunningTasks(true)
+                  .Any(rt => string.Equals(rt.Path, t.Path, System.StringComparison.OrdinalIgnoreCase)))
+                return true;
+
+            // 3) Fallback: detect the actual EXE process from the ExecAction
+            var execPath = (t.Definition.Actions.FirstOrDefault() as ExecAction)?.Path;
+            if (!string.IsNullOrWhiteSpace(execPath))
             {
-                var task = ts.GetTask(taskName);
-                return task != null && task.State == TaskState.Running;
+                var exeName = Path.GetFileNameWithoutExtension(execPath);
+                if (Process.GetProcessesByName(exeName).Any())
+                    return true;
             }
+
+            return false;
         }
 
         public static void StartTask(string taskName)
         {
-            using (TaskService ts = new TaskService())
+            if (TaskExists(taskName))
             {
-                var task = ts.GetTask(taskName);
-                task?.Run();
+                using (TaskService ts = new TaskService())
+                {
+                    var task = ts.GetTask(taskName);
+                    task?.Run();
+                }
             }
         }
 
         public static void StopTask(string taskName)
         {
-            using (TaskService ts = new TaskService())
+            if (TaskExists(taskName))
             {
-                var task = ts.GetTask(taskName);
-                task?.Stop();
+                using (TaskService ts = new TaskService())
+                {
+                    var task = ts.GetTask(taskName);
+                    task?.Stop();
+                }
             }
         }
 
