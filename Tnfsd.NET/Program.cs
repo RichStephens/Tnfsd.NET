@@ -1,15 +1,31 @@
+using System;
+using System.Security.Principal;
+using System.Windows.Forms;
+
 namespace Tnfsd.NET
 {
     internal static class Program
     {
-        /// <summary>
-        ///  The main entry point for the application.
-        /// </summary>
         [STAThread]
         static void Main()
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
+            // Block startup unless running as Administrator
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+            {
+                WindowsPrincipal principal = new WindowsPrincipal(identity);
+                if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
+                {
+                    MessageBox.Show(
+                        "This application must be run as Administrator.\n\n" +
+                        "Please close and restart it using 'Run as administrator'.",
+                        "Administrator Privileges Required",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                    return; // abort startup
+                }
+            }
+
             ApplicationConfiguration.Initialize();
             Application.Run(new MainForm());
         }

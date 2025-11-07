@@ -1,90 +1,66 @@
 ﻿using System;
-using System.Diagnostics;
-using System.IO;
 
 namespace Tnfsd.NET
 {
     public static class FirewallManager
     {
-        public static void AddFirewallException(string exePath, string displayName)
+        public static void AddFirewallException(string exePath, string ruleName)
         {
-            if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
-                throw new FileNotFoundException("Executable not found for firewall exception.");
+            Type fwMgrType = Type.GetTypeFromProgID("HNetCfg.FwMgr");
+            dynamic fwMgr = Activator.CreateInstance(fwMgrType);
 
-            // Don't do anything if the firewall rule already exists.
-            if (VerifyFirewallRuleExists(exePath))
+            dynamic app = Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FwAuthorizedApplication"));
+            app.Name = ruleName;
+            app.ProcessImageFileName = exePath;
+            app.Enabled = true;
+            app.Scope = 0; // NET_FW_SCOPE_ALL
+            app.IpVersion = 2; // NET_FW_IP_VERSION_ANY
+
+            // Add to authorized apps if not already present
+            var apps = fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications;
+            try
             {
-                return;
+                apps.Add(app);
             }
-
-            RunNetshCommand($"advfirewall firewall add rule name=\"{displayName}\" dir=in action=allow program=\"{exePath}\" enable=yes profile=private,public");
-
-            if (VerifyFirewallRuleExists(exePath))
+            catch
             {
-                System.Windows.Forms.MessageBox.Show($"Firewall rule successfully added for {Path.GetFileName(exePath)}.", "Firewall Rule Added", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
-            }
-            else
-            {
-                System.Windows.Forms.MessageBox.Show($"Warning: Unable to verify the firewall rule for {Path.GetFileName(exePath)}.", "Verification Warning", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+                // If already exists, ignore
             }
         }
 
         public static void RemoveFirewallException(string exePath)
         {
-            if (string.IsNullOrWhiteSpace(exePath)) return;
+            Type fwMgrType = Type.GetTypeFromProgID("HNetCfg.FwMgr");
+            dynamic fwMgr = Activator.CreateInstance(fwMgrType);
+            var apps = fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications;
 
-            // Don't do anything if the firewall rule is doesn't exist
-            if (!VerifyFirewallRuleExists(exePath))
-            {
-                return;
-            }
-
-            RunNetshCommand($"advfirewall firewall delete rule program=\"{exePath}\"");
-
-            if (!VerifyFirewallRuleExists(exePath))
-            {
-                System.Windows.Forms.MessageBox.Show($"Firewall rule successfully removed for {Path.GetFileName(exePath)}.", "Firewall Rule Removed", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
-            }
-            else
-            {
-                System.Windows.Forms.MessageBox.Show($"Warning: Firewall rule may still exist for {Path.GetFileName(exePath)}.", "Verification Warning", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
-            }
-        }
-
-        private static bool VerifyFirewallRuleExists(string exePath)
-        {
             try
             {
-                Process process = new Process();
-                process.StartInfo.FileName = "netsh";
-                process.StartInfo.Arguments = $"advfirewall firewall show rule name=all | findstr /I \"{exePath}\"";
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.CreateNoWindow = true;
-                process.Start();
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                return output.Contains(exePath, StringComparison.OrdinalIgnoreCase);
+                apps.Remove(exePath);
             }
             catch
             {
-                return false;
+                // Ignore if not found
             }
         }
 
-        private static void RunNetshCommand(string arguments)
+        public static bool FirewallExceptionExists(string ruleName)
         {
-            Process process = new Process();
-            process.StartInfo.FileName = "netsh";
-            process.StartInfo.Arguments = arguments;
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.CreateNoWindow = true;
-            process.Start();
-            process.WaitForExit();
+            Type fwMgrType = Type.GetTypeFromProgID("HNetCfg.FwMgr");
+            dynamic fwMgr = Activator.CreateInstance(fwMgrType);
+            var apps = fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications;
+
+            foreach (dynamic app in apps)
+            {
+                if (app.Name != null &&
+                    app.Name.Equals(ruleName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
+
