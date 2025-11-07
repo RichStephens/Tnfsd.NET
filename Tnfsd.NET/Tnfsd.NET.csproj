@@ -16,6 +16,10 @@
     <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
     <PublishTrimmed>false</PublishTrimmed>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Title>Tnfsd.NET</Title>
+    <Description>TNFSD Manager for Windows</Description>
+    <Company>Rich Stephens</Company>
+    <Authors>Rich Stephens</Authors>
   </PropertyGroup>
 
   <ItemGroup>

@@ -23,8 +23,21 @@ jobs:
         run: dotnet restore Tnfsd.NET.sln
 
       - name: Build and publish single-file EXE
-        run: dotnet publish Tnfsd.NET/Tnfsd.NET.csproj -c Release -r win-x64 --self-contained true ^
-          /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=false /p:PublishTrimmed=false
+        env:
+          TAG_VERSION: ${{ github.ref_name }}
+        run: |
+          # Strip the leading "v" if present
+          $version = $env:TAG_VERSION -replace '^v', ''
+
+          echo "Building version $version"
+
+          dotnet publish Tnfsd.NET/Tnfsd.NET.csproj -c Release -r win-x64 --self-contained true `
+            /p:PublishSingleFile=true `
+            /p:IncludeAllContentForSelfExtract=false `
+            /p:PublishTrimmed=false `
+            /p:AssemblyVersion=$version.0 `
+            /p:FileVersion=$version.0 `
+            /p:InformationalVersion=$env:TAG_VERSION
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
