@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # e.g., v1.0.0, v0.2.3
+      - 'v*'  # triggers when you push tags like v1.0.0
 
 jobs:
   build:
@@ -44,15 +44,15 @@ jobs:
         with:
           name: Tnfsd.NET_Build
           path: |
-            Tnfsd.NET/Tnfsd.NET/bin/Release/net8.0-windows/win-x64/publish/Tnfsd.NET.exe
-            Tnfsd.NET/Tnfsd.NET/bin/Release/net8.0-windows/win-x64/publish/appsettings.json
+            **/bin/Release/**/publish/Tnfsd.NET.exe
+            **/bin/Release/**/publish/appsettings.json
 
   release:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Required for creating releases
+      contents: write  # required for creating releases
 
     steps:
       - name: Checkout code
