@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # triggers when you push tags like v1.0.0
+      - 'v*'  # e.g., v1.0.0, v0.1.1, etc.
 
 jobs:
   build:
@@ -28,7 +28,6 @@ jobs:
         run: |
           # Strip the leading "v" if present
           $version = $env:TAG_VERSION -replace '^v', ''
-
           echo "Building version $version"
 
           dotnet publish Tnfsd.NET/Tnfsd.NET.csproj -c Release -r win-x64 --self-contained true `
@@ -52,7 +51,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # required for creating releases
+      contents: write  # required to publish the release
 
     steps:
       - name: Checkout code
@@ -68,8 +67,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release_files/Tnfsd.NET.exe
-            release_files/appsettings.json
+            release_files/**/Tnfsd.NET.exe
+            release_files/**/appsettings.json
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
