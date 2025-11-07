@@ -1,0 +1,62 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # e.g., v1.0.0, v0.2.3
+
+jobs:
+  build:
+    name: Build and Publish Single EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore Tnfsd.NET.sln
+
+      - name: Build and publish single-file EXE
+        run: dotnet publish Tnfsd.NET/Tnfsd.NET.csproj -c Release -r win-x64 --self-contained true ^
+          /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=false /p:PublishTrimmed=false
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tnfsd.NET_Build
+          path: |
+            Tnfsd.NET/Tnfsd.NET/bin/Release/net8.0-windows/win-x64/publish/Tnfsd.NET.exe
+            Tnfsd.NET/Tnfsd.NET/bin/Release/net8.0-windows/win-x64/publish/appsettings.json
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Tnfsd.NET_Build
+          path: release_files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release_files/Tnfsd.NET.exe
+            release_files/appsettings.json
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -9,6 +9,13 @@
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>
     <ApplicationIcon>fujinet.ico</ApplicationIcon>
+	
+	<!-- These lines ensure a single-file EXE publish -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
+    <PublishTrimmed>false</PublishTrimmed>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,5 +31,16 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.10" />
     <PackageReference Include="TaskScheduler" Version="2.12.2" />
   </ItemGroup>
+  
+  <Target Name="AfterPublish">
+  <ItemGroup>
+    <KeepFiles Include="$(PublishDir)Tnfsd.NET.exe" />
+    <KeepFiles Include="$(PublishDir)appsettings.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ExtraFiles Include="$(PublishDir)**\*" Exclude="@(KeepFiles)" />
+  </ItemGroup>
+  <Delete Files="@(ExtraFiles)" />
+ </Target>
 
 </Project>
