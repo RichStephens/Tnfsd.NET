@@ -74,26 +74,33 @@ namespace Tnfsd.NET
         {
             using var ts = new TaskService();
 
-            // Always re-fetch to avoid stale state
             var t = ts.GetTask(taskName) ?? ts.FindTask(taskName, true);
             if (t == null)
                 return false;
 
-            // 1) Scheduler reports Running
             if (t.State == TaskState.Running)
                 return true;
 
-            // 2) Check if this task appears in the system's active task list
-            if (ts.GetRunningTasks(true)
-                  .Any(rt => string.Equals(rt.Path, t.Path, System.StringComparison.OrdinalIgnoreCase)))
-                return true;
+            // Most reliable for this library: ask the task for its running instances
+            try
+            {
+                using var instances = t.GetInstances();
+                if (instances != null && instances.Count > 0)
+                    return true;
+            }
+            catch
+            {
+                // Optional: swallow/log. Access/security context can affect visibility.
+                // (Same caveat exists for GetRunningTasks.) :contentReference[oaicite:2]{index=2}
+            }
 
-            // 3) Fallback: detect the actual EXE process from the ExecAction
-            var execPath = (t.Definition.Actions.FirstOrDefault() as ExecAction)?.Path;
+            // Fallback: detect the EXE process from the first ExecAction
+            var execPath = t.Definition?.Actions?.OfType<ExecAction>().FirstOrDefault()?.Path;
             if (!string.IsNullOrWhiteSpace(execPath))
             {
                 var exeName = Path.GetFileNameWithoutExtension(execPath);
-                if (Process.GetProcessesByName(exeName).Any())
+                if (!string.IsNullOrWhiteSpace(exeName) &&
+                    Process.GetProcessesByName(exeName).Length > 0)
                     return true;
             }
 
