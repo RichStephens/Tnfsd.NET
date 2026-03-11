@@ -29,19 +29,36 @@ namespace Tnfsd.NET
                 // Define new task
                 TaskDefinition td = ts.NewTask();
                 td.RegistrationInfo.Description = "TNFSD network file server";
-                td.Principal.UserId = "SYSTEM";
+
+                // Run as LocalSystem
+                td.Principal.UserId = "NT AUTHORITY\\SYSTEM";
+                td.Principal.LogonType = TaskLogonType.ServiceAccount;
                 td.Principal.RunLevel = TaskRunLevel.Highest;
 
-                td.Triggers.Add(new BootTrigger()); // run at system startup
+                // Trigger: run at system startup
+                td.Triggers.Add(new BootTrigger());
 
-                // Quote both exe path and argument if needed
+                // Settings suitable for a long-running service-like task
+                td.Settings.Enabled = true;
+                td.Settings.StartWhenAvailable = true; // try to start if missed
+                td.Settings.AllowDemandStart = true;
+                td.Settings.RunOnlyIfNetworkAvailable = false;
+                td.Settings.DisallowStartIfOnBatteries = false;
+                td.Settings.ExecutionTimeLimit = TimeSpan.Zero; // no time limit (run indefinitely)
+                td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew; // single instance behavior
+
+                // Quote argument (if present)
                 string quotedArgs = string.IsNullOrWhiteSpace(arguments) ? "" : $"\"{arguments.Trim()}\"";
 
-                td.Actions.Add(new ExecAction($"{exePath}", quotedArgs, Path.GetDirectoryName(exePath)));
+                td.Actions.Add(new ExecAction(exePath, quotedArgs, Path.GetDirectoryName(exePath)));
 
-                // Register the task
-                ts.RootFolder.RegisterTaskDefinition(taskName, td,
-                    TaskCreation.CreateOrUpdate, null, null,
+                // Register the task as LocalSystem
+                ts.RootFolder.RegisterTaskDefinition(
+                    taskName,
+                    td,
+                    TaskCreation.CreateOrUpdate,
+                    "NT AUTHORITY\\SYSTEM",
+                    null,
                     TaskLogonType.ServiceAccount);
             }
         }
@@ -163,4 +180,5 @@ namespace Tnfsd.NET
             }
         }
     }
+
 }

@@ -296,9 +296,7 @@ namespace Tnfsd.NET
             }
 
             if (!Directory.Exists(folderPath))
-            {
                 Directory.CreateDirectory(folderPath);
-            }
             else if (Directory.GetFiles(folderPath).Length > 0 || Directory.GetDirectories(folderPath).Length > 0)
             {
                 var result = MessageBox.Show(
@@ -311,40 +309,6 @@ namespace Tnfsd.NET
                 if (result == DialogResult.Yes)
                 {
                     // Continue with download and extraction
-                    buttonDownload.Enabled = false;
-                    ShowHourglass(true);
-
-                    try
-                    {
-                        using (var httpClient = new HttpClient())
-                        using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
-                        {
-                            response.EnsureSuccessStatusCode();
-
-                            string zipFileName = Path.GetFileName(new Uri(downloadUrl).LocalPath);
-                            string tempZip = Path.Combine(Path.GetTempPath(), zipFileName);
-
-                            await using (var stream = await response.Content.ReadAsStreamAsync())
-                            await using (var fileStream = new FileStream(tempZip, FileMode.Create, FileAccess.Write, FileShare.None))
-                            {
-                                await stream.CopyToAsync(fileStream);
-                            }
-
-                            await Task.Run(() => ZipFile.ExtractToDirectory(tempZip, folderPath));
-                            File.Delete(tempZip);
-
-                            MessageBox.Show($"Download complete and extracted to:\n{folderPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Failed to download or extract tnfsd: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                        buttonDownload.Enabled = true;
-                        ShowHourglass(false);
-                    }
                 }
                 else if (result == DialogResult.No)
                 {
@@ -355,7 +319,42 @@ namespace Tnfsd.NET
                 {
                     return;
                 }
-            } 
+            }
+
+            buttonDownload.Enabled = false;
+            this.UseWaitCursor = true;
+
+            try
+            {
+                using (var httpClient = new HttpClient())
+                using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                {
+                    response.EnsureSuccessStatusCode();
+
+                    string zipFileName = Path.GetFileName(new Uri(downloadUrl).LocalPath);
+                    string tempZip = Path.Combine(Path.GetTempPath(), zipFileName);
+
+                    await using (var stream = await response.Content.ReadAsStreamAsync())
+                    await using (var fileStream = new FileStream(tempZip, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        await stream.CopyToAsync(fileStream);
+                    }
+
+                    await Task.Run(() => ZipFile.ExtractToDirectory(tempZip, folderPath));
+                    File.Delete(tempZip);
+
+                    MessageBox.Show($"Download complete and extracted to:\n{folderPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to download or extract tnfsd: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                buttonDownload.Enabled = true;
+                this.UseWaitCursor = false;
+            }
         }
 
         private void buttonBrowseExecFolder_Click(object sender, EventArgs e)
