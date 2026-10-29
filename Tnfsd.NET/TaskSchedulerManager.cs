@@ -108,7 +108,6 @@ namespace Tnfsd.NET
             catch
             {
                 // Optional: swallow/log. Access/security context can affect visibility.
-                // (Same caveat exists for GetRunningTasks.) :contentReference[oaicite:2]{index=2}
             }
 
             // Fallback: detect the EXE process from the first ExecAction
