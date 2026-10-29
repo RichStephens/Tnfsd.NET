@@ -4,6 +4,7 @@ namespace Tnfsd.NET
         bool TaskExists,
         bool IsRunning,
         bool FirewallRuleExists,
+        bool ExecutableFound,
         string? ExecutableFolder,
         string? ShareFolder);
 }

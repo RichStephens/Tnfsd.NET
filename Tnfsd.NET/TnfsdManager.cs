@@ -15,6 +15,7 @@ namespace Tnfsd.NET
                 exists,
                 exists && TaskSchedulerManager.IsTaskRunning(TaskName),
                 FirewallManager.FirewallExceptionExists(TaskName),
+                props?.ExecutableFolder != null && ExecutableExists(props.ExecutableFolder),
                 props?.ExecutableFolder,
                 props?.ShareFolder);
         });
