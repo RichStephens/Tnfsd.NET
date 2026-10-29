@@ -1,66 +1,69 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 namespace Tnfsd.NET
 {
     public static class FirewallManager
     {
+        private const int NET_FW_RULE_DIR_IN = 1;
+        private const int NET_FW_ACTION_ALLOW = 1;
+        private const int NET_FW_PROFILE2_ALL = 0x7FFFFFFF;
+
         public static void AddFirewallException(string exePath, string ruleName)
         {
-            Type fwMgrType = Type.GetTypeFromProgID("HNetCfg.FwMgr");
-            dynamic fwMgr = Activator.CreateInstance(fwMgrType);
+            RemoveFirewallException(ruleName);
 
-            dynamic app = Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FwAuthorizedApplication"));
-            app.Name = ruleName;
-            app.ProcessImageFileName = exePath;
-            app.Enabled = true;
-            app.Scope = 0; // NET_FW_SCOPE_ALL
-            app.IpVersion = 2; // NET_FW_IP_VERSION_ANY
+            dynamic rule = CreateComObject("HNetCfg.FWRule");
+            rule.Name = ruleName;
+            rule.ApplicationName = exePath;
+            rule.Direction = NET_FW_RULE_DIR_IN;
+            rule.Action = NET_FW_ACTION_ALLOW;
+            rule.Profiles = NET_FW_PROFILE2_ALL;
+            rule.Enabled = true;
 
-            // Add to authorized apps if not already present
-            var apps = fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications;
-            try
-            {
-                apps.Add(app);
-            }
-            catch
-            {
-                // If already exists, ignore
-            }
+            CreateComObject("HNetCfg.FwPolicy2").Rules.Add(rule);
         }
 
-        public static void RemoveFirewallException(string exePath)
+        // Older versions created one rule per protocol and profile, all with the same name.
+        public static bool RemoveFirewallException(string ruleName)
         {
-            Type fwMgrType = Type.GetTypeFromProgID("HNetCfg.FwMgr");
-            dynamic fwMgr = Activator.CreateInstance(fwMgrType);
-            var apps = fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications;
+            dynamic rules = CreateComObject("HNetCfg.FwPolicy2").Rules;
+            bool removed = false;
 
-            try
+            while (RuleExists(rules, ruleName))
             {
-                apps.Remove(exePath);
+                int before = rules.Count;
+                rules.Remove(ruleName);
+                if (rules.Count == before)
+                    break;
+                removed = true;
             }
-            catch
-            {
-                // Ignore if not found
-            }
+
+            return removed;
         }
 
         public static bool FirewallExceptionExists(string ruleName)
         {
-            Type fwMgrType = Type.GetTypeFromProgID("HNetCfg.FwMgr");
-            dynamic fwMgr = Activator.CreateInstance(fwMgrType);
-            var apps = fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications;
+            return RuleExists(CreateComObject("HNetCfg.FwPolicy2").Rules, ruleName);
+        }
 
-            foreach (dynamic app in apps)
+        private static bool RuleExists(dynamic rules, string ruleName)
+        {
+            try
             {
-                if (app.Name != null &&
-                    app.Name.Equals(ruleName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
+                rules.Item(ruleName);
+                return true;
             }
+            // A missing rule raises 0x80070002, which .NET maps to FileNotFoundException.
+            catch (Exception ex) when (ex is FileNotFoundException or COMException)
+            {
+                return false;
+            }
+        }
 
-            return false;
+        private static dynamic CreateComObject(string progId)
+        {
+            return Activator.CreateInstance(Type.GetTypeFromProgID(progId, throwOnError: true)!)!;
         }
     }
 }
-

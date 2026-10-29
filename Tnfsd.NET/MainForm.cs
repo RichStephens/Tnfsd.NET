@@ -1,13 +1,13 @@
-using System.IO.Compression;
-
 namespace Tnfsd.NET
 {
     public partial class MainForm : Form
     {
-        private System.Windows.Forms.Timer _uiTimer;
-        private NotifyIcon trayIcon;
-        private ContextMenuStrip trayMenu;
-        private ToolStripMenuItem menuStartTask, menuStopTask, menuExit;
+        private readonly System.Windows.Forms.Timer _uiTimer = new() { Interval = 2000 };
+        private NotifyIcon trayIcon = null!;
+        private ContextMenuStrip trayMenu = null!;
+        private ToolStripMenuItem menuStartTask = null!, menuStopTask = null!, menuExit = null!;
+        private bool _busy;
+        private bool _refreshing;
 
         public MainForm()
         {
@@ -17,63 +17,21 @@ namespace Tnfsd.NET
 
         private void InitializeTrayIcon()
         {
-            // Create tray menu and items
             trayMenu = new ContextMenuStrip();
 
-            // New "Restore Window" option
-            var menuRestore = new ToolStripMenuItem("Restore Window", null, (s, e) =>
-            {
-                this.Show();
-                this.WindowState = FormWindowState.Normal;
-                this.BringToFront();
-            });
-
-            // Start/Stop task options
-            menuStartTask = new ToolStripMenuItem("Start Task", null, (s, e) =>
-            {
-                try
-                {
-                    // Mirror what the start button does, but avoid coupling to the button control
-                    this.UseWaitCursor = true;
-                    menuStartTask.Enabled = false;
-
-                    TaskSchedulerManager.StartTask(TaskSchedulerManager.TaskName);
-                    setTaskRunningState();
-                }
-                finally
-                {
-                    menuStartTask.Enabled = true;
-                    this.UseWaitCursor = false;
-                }
-            });
-
-            menuStopTask = new ToolStripMenuItem("Stop Task", null, (s, e) =>
-            {
-                try
-                {
-                    this.UseWaitCursor = true;
-                    menuStopTask.Enabled = false;
-
-                    TaskSchedulerManager.StopTask(TaskSchedulerManager.TaskName);
-                    setTaskRunningState();
-                }
-                finally
-                {
-                    menuStopTask.Enabled = true;
-                    this.UseWaitCursor = false;
-                }
-            });
-
+            var menuRestore = new ToolStripMenuItem("Restore Window", null, (s, e) => RestoreWindow());
+            menuStartTask = new ToolStripMenuItem("Start Task", null, buttonStartTask_Click);
+            menuStopTask = new ToolStripMenuItem("Stop Task", null, buttonStopTask_Click);
             menuExit = new ToolStripMenuItem("Exit", null, (s, e) => Application.Exit());
 
             trayMenu.Items.AddRange(new ToolStripItem[]
             {
-        menuRestore,
-        new ToolStripSeparator(),
-        menuStartTask,
-        menuStopTask,
-        new ToolStripSeparator(),
-        menuExit
+                menuRestore,
+                new ToolStripSeparator(),
+                menuStartTask,
+                menuStopTask,
+                new ToolStripSeparator(),
+                menuExit
             });
 
             trayIcon = new NotifyIcon
@@ -90,214 +48,159 @@ namespace Tnfsd.NET
                     trayMenu.Show(Cursor.Position);
             };
 
-            trayIcon.DoubleClick += (s, e) =>
-            {
-                this.Show();
-                this.WindowState = FormWindowState.Normal;
-                this.BringToFront();
-            };
+            trayIcon.DoubleClick += (s, e) => RestoreWindow();
         }
-        
-        private void setTaskRunningState()
+
+        private void RestoreWindow()
         {
-            bool exists = TaskSchedulerManager.TaskExists(TaskSchedulerManager.TaskName);
-            bool running = exists && TaskSchedulerManager.IsTaskRunning(TaskSchedulerManager.TaskName);
-            bool firewallExists = FirewallManager.FirewallExceptionExists(TaskSchedulerManager.TaskName);
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            this.BringToFront();
+        }
 
-            if (exists)
-            {
-                if (running)
-                {
-                    labelTaskStatus.Text = "***   TNFSD task is running   ***";
-                }
-                else
-                {
-                    labelTaskStatus.Text = "*** TNFSD task is NOT running ***";
-                }
-            }
-            else
-            {
+        private void Render(TnfsdStatus status)
+        {
+            if (!status.TaskExists)
                 labelTaskStatus.Text = "***   TNFSD task not created  ***";
-            }
+            else if (status.IsRunning)
+                labelTaskStatus.Text = "***   TNFSD task is running   ***";
+            else
+                labelTaskStatus.Text = "*** TNFSD task is NOT running ***";
 
-            buttonStartTask.Enabled = exists && !running;
-            buttonStopTask.Enabled = exists && running;
-            buttonCreateTask.Enabled = !exists;
-            buttonDeleteTask.Enabled = exists;
-            checkBoxAddFirewallException.Enabled = !firewallExists;
+            buttonStartTask.Enabled = status.TaskExists && !status.IsRunning;
+            buttonStopTask.Enabled = status.TaskExists && status.IsRunning;
+            buttonCreateTask.Enabled = !status.TaskExists;
+            buttonDeleteTask.Enabled = status.TaskExists;
+            checkBoxAddFirewallException.Enabled = !status.TaskExists;
 
-            // Sync tray tooltip and menu
-            trayIcon.Text = running ? "TNFSD task is running" : "TNFSD task is not running";
+            trayIcon.Text = status.IsRunning ? "TNFSD task is running" : "TNFSD task is not running";
             menuStartTask.Enabled = buttonStartTask.Enabled;
             menuStopTask.Enabled = buttonStopTask.Enabled;
-
-            if (this.WindowState == FormWindowState.Minimized)
-                this.Hide();
         }
 
-        private void ShowHourglass(bool show)
+        private async Task RefreshStatusAsync()
         {
-            if (show)
+            if (_refreshing)
+                return;
+
+            _refreshing = true;
+            try
             {
-                this.UseWaitCursor = true;
-                Cursor.Current = Cursors.WaitCursor;
-                this.Enabled = false;
-                Application.DoEvents(); // force UI refresh
+                var status = await TnfsdManager.GetStatusAsync();
+                if (!_busy)
+                    Render(status);
             }
-            else
+            catch (Exception ex)
             {
+                labelTaskStatus.Text = $"*** Status check failed: {ex.Message} ***";
+            }
+            finally
+            {
+                _refreshing = false;
+            }
+        }
+
+        private async Task RunAsync(Func<Task> operation, string failureMessage)
+        {
+            _busy = true;
+            this.Enabled = false;
+            this.UseWaitCursor = true;
+            menuStartTask.Enabled = false;
+            menuStopTask.Enabled = false;
+
+            try
+            {
+                await operation();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{failureMessage}: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _busy = false;
                 this.UseWaitCursor = false;
-                Cursor.Current = Cursors.Default;
                 this.Enabled = true;
-                Application.DoEvents();
+                await RefreshStatusAsync();
             }
         }
-        private void MainForm_Load(object sender, EventArgs e)
+
+        private async void MainForm_Load(object sender, EventArgs e)
         {
-            var props = TaskSchedulerManager.GetTaskProperties(TaskSchedulerManager.TaskName);
-            if (props != null)
+            try
             {
-                // Set executable folder field
-                textBoxExecFolder.Text = props.ExecutableFolder ?? string.Empty;
-
-                // Set share folder field (if present)
-                if (!string.IsNullOrWhiteSpace(props.ShareFolder))
-                    textBoxShareFolder.Text = props.ShareFolder;
+                var status = await TnfsdManager.GetStatusAsync();
+                textBoxExecFolder.Text = status.ExecutableFolder ?? string.Empty;
+                textBoxShareFolder.Text = status.ShareFolder ?? string.Empty;
+                checkBoxAddFirewallException.Checked = true;
+                Render(status);
             }
-            else
+            catch (Exception ex)
             {
-                // Default executable folder or username if no task yet
-                textBoxExecFolder.Text = string.Empty;
-                textBoxShareFolder.Text = string.Empty;
+                labelTaskStatus.Text = $"*** Status check failed: {ex.Message} ***";
             }
 
-            checkBoxAddFirewallException.Checked = !(FirewallManager.FirewallExceptionExists(TaskSchedulerManager.TaskName));
-
-            setTaskRunningState();
-
-            _uiTimer = new System.Windows.Forms.Timer();
-            _uiTimer.Interval = 2000;
-            _uiTimer.Tick += (s, ev) => setTaskRunningState();
+            _uiTimer.Tick += async (s, ev) => await RefreshStatusAsync();
             _uiTimer.Start();
         }
 
-        private void buttonStartTask_Click(object sender, EventArgs e)
+        private async void buttonStartTask_Click(object? sender, EventArgs e)
         {
-            ShowHourglass(true);
-            TaskSchedulerManager.StartTask(TaskSchedulerManager.TaskName);
-            ShowHourglass(false);
-            setTaskRunningState();
+            await RunAsync(TnfsdManager.StartAsync, "Failed to start task");
         }
 
-        private void buttonStopTask_Click(object sender, EventArgs e)
+        private async void buttonStopTask_Click(object? sender, EventArgs e)
         {
-            ShowHourglass(true);
-            TaskSchedulerManager.StopTask(TaskSchedulerManager.TaskName);
-            ShowHourglass(false);
-            setTaskRunningState();
+            await RunAsync(TnfsdManager.StopAsync, "Failed to stop task");
         }
 
         private async void buttonCreateTask_Click(object sender, EventArgs e)
         {
             string exeFolder = textBoxExecFolder.Text.Trim();
             string shareFolder = textBoxShareFolder.Text.Trim();
+
             if (string.IsNullOrEmpty(exeFolder) || !Directory.Exists(exeFolder))
             {
                 MessageBox.Show("Please specify a valid executable folder.", "Invalid Folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            string exePath = Path.Combine(exeFolder, TaskSchedulerManager.ExecutableName);
-            if (!File.Exists(exePath))
+            if (!TnfsdManager.ExecutableExists(exeFolder))
             {
                 MessageBox.Show($"The executable '{TaskSchedulerManager.ExecutableName}' was not found in the specified folder.", "Missing Executable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            try
+            bool addFirewallRule = checkBoxAddFirewallException.Checked;
+            await RunAsync(async () =>
             {
-                ShowHourglass(true);
-                buttonCreateTask.Enabled = false;
-
-                TaskSchedulerManager.CreateOrUpdateTask(TaskSchedulerManager.TaskName, exePath, shareFolder);
-
-                if (!FirewallManager.FirewallExceptionExists(TaskSchedulerManager.TaskName))
-                {
-                    if (checkBoxAddFirewallException.Checked)
-                    {
-                        FirewallManager.AddFirewallException(exePath, TaskSchedulerManager.TaskName);
-                    }
-                }
-
-                if (TaskSchedulerManager.TaskExists(TaskSchedulerManager.TaskName))
-                {
-                    if (!TaskSchedulerManager.IsTaskRunning(TaskSchedulerManager.TaskName))
-                    {
-                        TaskSchedulerManager.StartTask(TaskSchedulerManager.TaskName);
-                    }
-
-                    MessageBox.Show("Scheduled task created/updated successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to create scheduled task: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                buttonCreateTask.Enabled = true;
-                ShowHourglass(false);
-                setTaskRunningState();
-            }
+                await TnfsdManager.CreateAsync(exeFolder, shareFolder, addFirewallRule);
+                MessageBox.Show("Scheduled task created/updated successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }, "Failed to create scheduled task");
         }
 
         private async void buttonDeleteTask_Click(object sender, EventArgs e)
         {
-            try
+            await RunAsync(async () =>
             {
-                ShowHourglass(true);
-                buttonDeleteTask.Enabled = false;
-
-                TaskSchedulerManager.DeleteTask(TaskSchedulerManager.TaskName);
-
-                // Remove the firewall exception if the checkbox is checked
-                if (checkBoxAddFirewallException.Checked)
-                {
-                    if (FirewallManager.FirewallExceptionExists(TaskSchedulerManager.TaskName))
-                    {
-                        FirewallManager.RemoveFirewallException(TaskSchedulerManager.TaskName);
-                        MessageBox.Show("Firewall exception removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
+                if (await TnfsdManager.DeleteAsync())
+                    MessageBox.Show("Firewall exception removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 MessageBox.Show("Scheduled task removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to remove scheduled task: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                buttonDeleteTask.Enabled = true;
-                ShowHourglass(false);
-                setTaskRunningState();
-            }
+            }, "Failed to remove scheduled task");
         }
 
         private async void buttonDownload_Click(object sender, EventArgs e)
         {
-            string folderPath = textBoxExecFolder.Text.Trim();
-            string downloadUrl = AppSettings.TNFSDownloadURL;
+            string folder = textBoxExecFolder.Text.Trim();
 
-            if (string.IsNullOrEmpty(folderPath))
+            if (string.IsNullOrEmpty(folder))
             {
                 MessageBox.Show("Please specify an executable folder first.", "Missing Folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (!Directory.Exists(folderPath))
-                Directory.CreateDirectory(folderPath);
-            else if (Directory.GetFiles(folderPath).Length > 0 || Directory.GetDirectories(folderPath).Length > 0)
+            if (!TnfsdManager.IsFolderEmpty(folder))
             {
                 var result = MessageBox.Show(
                     "Folder already contains files. Continue download?",
@@ -306,55 +209,18 @@ namespace Tnfsd.NET
                     MessageBoxIcon.Warning,
                     MessageBoxDefaultButton.Button3);
 
-                if (result == DialogResult.Yes)
-                {
-                    // Continue with download and extraction
-                }
-                else if (result == DialogResult.No)
-                {
+                if (result == DialogResult.No)
                     MessageBox.Show("Download skipped to avoid overwriting.", "Folder Not Empty", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                if (result != DialogResult.Yes)
                     return;
-                }
-                else // Cancel
-                {
-                    return;
-                }
             }
 
-            buttonDownload.Enabled = false;
-            this.UseWaitCursor = true;
-
-            try
+            await RunAsync(async () =>
             {
-                using (var httpClient = new HttpClient())
-                using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
-                {
-                    response.EnsureSuccessStatusCode();
-
-                    string zipFileName = Path.GetFileName(new Uri(downloadUrl).LocalPath);
-                    string tempZip = Path.Combine(Path.GetTempPath(), zipFileName);
-
-                    await using (var stream = await response.Content.ReadAsStreamAsync())
-                    await using (var fileStream = new FileStream(tempZip, FileMode.Create, FileAccess.Write, FileShare.None))
-                    {
-                        await stream.CopyToAsync(fileStream);
-                    }
-
-                    await Task.Run(() => ZipFile.ExtractToDirectory(tempZip, folderPath));
-                    File.Delete(tempZip);
-
-                    MessageBox.Show($"Download complete and extracted to:\n{folderPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to download or extract tnfsd: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                buttonDownload.Enabled = true;
-                this.UseWaitCursor = false;
-            }
+                await TnfsdManager.InstallAsync(folder);
+                MessageBox.Show($"Download complete and extracted to:\n{folder}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }, "Failed to download or extract tnfsd");
         }
 
         private void buttonBrowseExecFolder_Click(object sender, EventArgs e)
@@ -396,6 +262,7 @@ namespace Tnfsd.NET
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            _uiTimer.Stop();
             trayIcon.Visible = false;
             base.OnFormClosing(e);
         }

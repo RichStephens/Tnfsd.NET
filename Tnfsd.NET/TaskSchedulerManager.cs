@@ -21,38 +21,31 @@ namespace Tnfsd.NET
 
             using (TaskService ts = new TaskService())
             {
-                // Delete existing task if present
                 var existing = ts.GetTask(taskName);
                 if (existing != null)
                     ts.RootFolder.DeleteTask(taskName);
 
-                // Define new task
                 TaskDefinition td = ts.NewTask();
                 td.RegistrationInfo.Description = "TNFSD network file server";
 
-                // Run as LocalSystem
                 td.Principal.UserId = "NT AUTHORITY\\SYSTEM";
                 td.Principal.LogonType = TaskLogonType.ServiceAccount;
                 td.Principal.RunLevel = TaskRunLevel.Highest;
 
-                // Trigger: run at system startup
                 td.Triggers.Add(new BootTrigger());
 
-                // Settings suitable for a long-running service-like task
                 td.Settings.Enabled = true;
                 td.Settings.StartWhenAvailable = true; // try to start if missed
                 td.Settings.AllowDemandStart = true;
                 td.Settings.RunOnlyIfNetworkAvailable = false;
                 td.Settings.DisallowStartIfOnBatteries = false;
-                td.Settings.ExecutionTimeLimit = TimeSpan.Zero; // no time limit (run indefinitely)
-                td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew; // single instance behavior
+                td.Settings.ExecutionTimeLimit = TimeSpan.Zero; // zero means no limit
+                td.Settings.MultipleInstances = TaskInstancesPolicy.IgnoreNew;
 
-                // Quote argument (if present)
-                string quotedArgs = string.IsNullOrWhiteSpace(arguments) ? "" : $"\"{arguments.Trim()}\"";
+                string quotedArgs = string.IsNullOrWhiteSpace(arguments) ? "" : QuoteArgument(arguments.Trim());
 
                 td.Actions.Add(new ExecAction(exePath, quotedArgs, Path.GetDirectoryName(exePath)));
 
-                // Register the task as LocalSystem
                 ts.RootFolder.RegisterTaskDefinition(
                     taskName,
                     td,
@@ -98,7 +91,6 @@ namespace Tnfsd.NET
             if (t.State == TaskState.Running)
                 return true;
 
-            // Most reliable for this library: ask the task for its running instances
             try
             {
                 using var instances = t.GetInstances();
@@ -107,10 +99,8 @@ namespace Tnfsd.NET
             }
             catch
             {
-                // Optional: swallow/log. Access/security context can affect visibility.
             }
 
-            // Fallback: detect the EXE process from the first ExecAction
             var execPath = t.Definition?.Actions?.OfType<ExecAction>().FirstOrDefault()?.Path;
             if (!string.IsNullOrWhiteSpace(execPath))
             {
@@ -150,7 +140,7 @@ namespace Tnfsd.NET
         /// <summary>
         /// Returns the executable folder and share folder (argument) used by the TNFSD task.
         /// </summary>
-        public static TaskProperties GetTaskProperties(string taskName)
+        public static TaskProperties? GetTaskProperties(string taskName)
         {
             using (TaskService ts = new TaskService())
             {
@@ -162,21 +152,32 @@ namespace Tnfsd.NET
                 if (action == null)
                     return null;
 
-                string exeFolder = Path.GetDirectoryName(action.Path);
-                string shareFolder = null;
-
+                string? shareFolder = null;
                 if (!string.IsNullOrWhiteSpace(action.Arguments))
-                {
-                    // Simple parse: first argument is the share folder path
-                    shareFolder = action.Arguments.Trim().Trim('"');
-                }
+                    shareFolder = UnquoteArgument(action.Arguments.Trim());
 
                 return new TaskProperties
                 {
-                    ExecutableFolder = exeFolder,
+                    ExecutableFolder = Path.GetDirectoryName(action.Path),
                     ShareFolder = shareFolder
                 };
             }
+        }
+
+        // Backslashes before a closing quote escape it, so "C:\" must be written "C:\\".
+        private static string QuoteArgument(string arg)
+        {
+            int trailing = arg.Length - arg.TrimEnd('\\').Length;
+            return $"\"{arg}{new string('\\', trailing)}\"";
+        }
+
+        // Also reads the unescaped form written by older versions.
+        private static string UnquoteArgument(string arg)
+        {
+            string inner = arg.Trim('"');
+            string trimmed = inner.TrimEnd('\\');
+            int trailing = inner.Length - trimmed.Length;
+            return trimmed + new string('\\', (trailing + 1) / 2);
         }
     }
 

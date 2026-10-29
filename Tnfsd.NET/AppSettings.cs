@@ -1,5 +1,4 @@
-﻿using System.IO;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 
 namespace Tnfsd.NET
 {
@@ -10,12 +9,12 @@ namespace Tnfsd.NET
         static AppSettings()
         {
             var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
             _config = builder.Build();
         }
 
-        public static string TNFSDownloadURL => _config["TNFSDownloadURL"];
+        public static string? TNFSDownloadURL => _config["TNFSDownloadURL"];
     }
 }
