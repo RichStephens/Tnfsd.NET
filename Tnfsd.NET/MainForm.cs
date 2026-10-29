@@ -7,11 +7,15 @@ namespace Tnfsd.NET
         private enum ServerState { NotInstalled, Running, Stopped, Error }
 
         private readonly System.Windows.Forms.Timer _uiTimer = new() { Interval = 2000 };
+        private readonly System.Windows.Forms.Timer _updateTimer = new() { Interval = 6 * 60 * 60 * 1000 };
         private readonly Dictionary<ServerState, Icon> _trayIcons = new();
         private NotifyIcon trayIcon = null!;
         private ContextMenuStrip trayMenu = null!;
         private ToolStripMenuItem menuStartTask = null!, menuStopTask = null!, menuExit = null!;
         private TnfsdStatus? _status;
+        private string? _installedVersion;
+        private TnfsdRelease? _availableRelease;
+        private string? _notifiedVersion;
         private Color _stateColor = Color.Gray;
         private bool _busy;
         private bool _refreshing;
@@ -151,10 +155,14 @@ namespace Tnfsd.NET
             {
                 string firewall = status.FirewallRuleExists ? "allowed" : "not allowed";
                 string share = string.IsNullOrEmpty(status.ShareFolder) ? "No share folder set" : $"Sharing {status.ShareFolder}";
-                detail = $"Starts with Windows · Firewall: {firewall}\n{share}";
+                detail = $"{VersionSummary()} · Firewall: {firewall}\n{share}";
             }
 
             ShowStatus(state, headline, detail);
+
+            linkDownload.Text = status.TaskExists && status.ExecutableFound && AvailableUpdate() is { } update
+                ? $"Update tnfsd to {TnfsdReleases.Normalize(update.Version)}"
+                : "Download tnfsd into this folder";
 
             buttonStartStop.Text = state == ServerState.Running ? "Stop" : "Start";
             buttonStartStop.Enabled = state is ServerState.Running or ServerState.Stopped;
@@ -164,6 +172,56 @@ namespace Tnfsd.NET
 
             menuStartTask.Enabled = state == ServerState.Stopped;
             menuStopTask.Enabled = state == ServerState.Running;
+        }
+
+        private TnfsdRelease? AvailableUpdate()
+        {
+            if (_availableRelease == null)
+                return null;
+            if (_installedVersion == null || TnfsdReleases.IsNewer(_availableRelease.Version, _installedVersion))
+                return _availableRelease;
+            return null;
+        }
+
+        private string VersionSummary()
+        {
+            string installed = _installedVersion != null ? $"tnfsd {_installedVersion}" : "tnfsd version unknown";
+            return AvailableUpdate() is { } update
+                ? $"{installed} ({TnfsdReleases.Normalize(update.Version)} available)"
+                : installed;
+        }
+
+        private async Task RefreshInstalledVersionAsync()
+        {
+            string? folder = _status?.TaskExists == true ? _status.ExecutableFolder : null;
+            try
+            {
+                _installedVersion = folder != null ? await TnfsdManager.GetInstalledVersionAsync(folder) : null;
+            }
+            catch (IOException)
+            {
+                _installedVersion = null;
+            }
+        }
+
+        private async Task CheckForUpdateAsync()
+        {
+            try
+            {
+                _availableRelease = await TnfsdReleases.GetConfiguredReleaseAsync();
+            }
+            catch (Exception)
+            {
+                // Offline, rate-limited or misconfigured: keep the last result and try again next time.
+                return;
+            }
+
+            if (_status?.TaskExists == true && AvailableUpdate() is { } update && update.Version != _notifiedVersion)
+            {
+                _notifiedVersion = update.Version;
+                trayIcon.ShowBalloonTip(10000, "tnfsd update available",
+                    $"tnfsd {TnfsdReleases.Normalize(update.Version)} is available. Open Tnfsd.NET to update.", ToolTipIcon.Info);
+            }
         }
 
         private void ShowStatus(ServerState state, string headline, string detail)
@@ -233,6 +291,9 @@ namespace Tnfsd.NET
                 this.UseWaitCursor = false;
                 this.Enabled = true;
                 await RefreshStatusAsync();
+                await RefreshInstalledVersionAsync();
+                if (_status != null)
+                    Render(_status);
             }
         }
 
@@ -244,6 +305,10 @@ namespace Tnfsd.NET
                 textBoxExecFolder.Text = status.ExecutableFolder ?? string.Empty;
                 textBoxShareFolder.Text = status.ShareFolder ?? string.Empty;
                 Render(status);
+
+                await RefreshInstalledVersionAsync();
+                await CheckForUpdateAsync();
+                Render(status);
             }
             catch (Exception ex)
             {
@@ -252,6 +317,14 @@ namespace Tnfsd.NET
 
             _uiTimer.Tick += async (s, ev) => await RefreshStatusAsync();
             _uiTimer.Start();
+
+            _updateTimer.Tick += async (s, ev) =>
+            {
+                await CheckForUpdateAsync();
+                if (_status != null && !_busy)
+                    Render(_status);
+            };
+            _updateTimer.Start();
         }
 
         private Task StartAsync() => RunAsync(TnfsdManager.StartAsync, "Failed to start tnfsd");
@@ -304,6 +377,12 @@ namespace Tnfsd.NET
 
         private async void linkDownload_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
+            if (_status is { TaskExists: true, ExecutableFound: true, ExecutableFolder: { } taskFolder } && AvailableUpdate() is { } update)
+            {
+                await UpdateTnfsdAsync(taskFolder, update);
+                return;
+            }
+
             string folder = textBoxExecFolder.Text.Trim();
 
             if (string.IsNullOrEmpty(folder))
@@ -330,9 +409,25 @@ namespace Tnfsd.NET
 
             await RunAsync(async () =>
             {
-                await TnfsdManager.InstallAsync(folder);
-                MessageBox.Show($"Download complete and extracted to:\n{folder}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                string version = await TnfsdManager.InstallAsync(folder);
+                MessageBox.Show($"tnfsd {version} downloaded and extracted to:\n{folder}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }, "Failed to download or extract tnfsd");
+        }
+
+        private async Task UpdateTnfsdAsync(string folder, TnfsdRelease update)
+        {
+            string from = _installedVersion ?? "an unknown version";
+            string to = TnfsdReleases.Normalize(update.Version);
+            string restart = _status?.IsRunning == true ? "\n\ntnfsd will be stopped and restarted." : "";
+
+            if (MessageBox.Show($"Update tnfsd from {from} to {to}?{restart}", "Update tnfsd", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+
+            await RunAsync(async () =>
+            {
+                string version = await TnfsdManager.UpdateAsync(folder);
+                MessageBox.Show($"tnfsd updated to {version}.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }, "Failed to update tnfsd");
         }
 
         private void buttonBrowseExecFolder_Click(object sender, EventArgs e)
